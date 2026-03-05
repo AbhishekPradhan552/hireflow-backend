@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  memberships OrganizationMember[]
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+
+  requiredSkills  String[]
+
+  //AI fields
+  embedding           Float[]  @default([])
+  embeddingModel      String?
+  embeddingUpdatedAt  DateTime?
+
+  aiStatus JobAIStatus @default(PENDING)
+
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id])
+
+  candidates Candidate[]
+
+  @@index([orgId])
+}
+
+model Candidate {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  status    String   @default("applied")
+  createdAt DateTime @default(now())
+
+  jobId String
+  orgId String
+  
+  job Job          @relation(fields: [jobId], references: [id])
+  org Organization @relation(fields: [orgId], references: [id])
+
+  bestResumeId   String?
+  bestScore      Int?  
+
+  resumes Resume[]
+
+  @@index([jobId])
+  @@index([orgId])
+  @@index([bestResumeId])
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members    OrganizationMember[]
+  jobs       Job[]
+  candidates Candidate[]
+  resumes    Resume[]
+
+  usages    OrgUsage[]
+
+  subscription  OrganizationSubscription?
+}
+
+model OrganizationMember {
+  id        String   @id @default(uuid())
+  role      OrgRole
+  createdAt DateTime @default(now())
+
+  userId String
+  orgId  String
+
+  user User         @relation(fields: [userId], references: [id])
+  org  Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  RECRUITER
+  VIEWER
+}
+
+model Resume {
+  id       String @id @default(cuid()) 
+  originalName String
+  fileKey  String
+  fileSize Int
+  mimeType String
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id])
+
+  uploadedBy String //userId
+
+  parseStatus ResumeParseStatus @default(PENDING)
+  parsedText  String?           @db.Text
+  parsedData  Json?
+  parsedAt    DateTime?
+  parseError  String?
+
+  confidenceScore  Int?
+  scoreBreakdown   Json?
+
+  //old rule-based score
+  matchScore      Int?
+  matchedSkills   String[]
+  missingSkills   String[]
+
+  //new ai fields
+  embedding            Float[]  @default([])
+  embeddingModel       String?
+  embeddingCreatedAt   DateTime?
+
+  semanticScore    Int?  //0-100 scaled
+  semanticRawScore Float?  //cosine similarity(0-1)
+
+  hybridScore     Int?   //future weighted score
+
+  aiProcessedAt            DateTime?
+  aiStatus ResumeAIStatus  @default(PENDING)
+
+  createdAt   DateTime          @default(now())
+
+  @@index([candidateId])
+  @@index([orgId])
+  @@index([semanticScore])
+  @@index([hybridScore])
+}
+
+enum ResumeParseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OrgUsage{
+  id            String  @id  @default(uuid())
+  orgId         String
+  month         String
+  resumesParsed  Int     @default(0)
+  jobsCreated    Int     @default(0)
+
+  org Organization  @relation(fields:[orgId], references:[id])
+
+  @@unique([orgId, month])
+  @@index([orgId])
+}
+
+model OrganizationSubscription{
+  id String @id @default(uuid())
+
+  orgId String @unique
+  org  Organization @relation(fields: [orgId], references: [id] )
+
+  //Provider-agnostic identifiers
+  providerCustomerId     String? @unique
+  providerSubscriptionId String? @unique
+  provider               String  @default("razorpay")
+
+
+  //plan info
+  plan   BillingPlan        @default(FREE)
+  status SubscriptionStatus @default(INACTIVE)
+
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+
+  //webhook observability
+  lastWebhookEvent String?
+  lastWebhookAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([name])
+}
+
+enum BillingPlan{
+  FREE
+  PRO
+  TEAM
+}
+
+enum SubscriptionStatus{
+  INACTIVE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum ResumeAIStatus{
+  PENDING
+  EMBEDDING
+  SCORING
+  COMPLETED
+  FAILED
+
+}
+
+enum JobAIStatus {
+  PENDING
+  EMBEDDING
+  COMPLETED
+  FAILED
+}

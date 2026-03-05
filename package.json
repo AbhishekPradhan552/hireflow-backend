@@ -1,0 +1,46 @@
+{
+  "name": "hireflow-backend",
+  "type": "module",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "worker": "node src/workers/index.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run worker\"",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1000.0",
+    "@bull-board/api": "^6.16.4",
+    "@bull-board/express": "^6.16.4",
+    "@prisma/client": "^6.19.2",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.67.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ioredis": "^5.9.2",
+    "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
+    "pdfjs-dist": "^5.4.624",
+    "prisma": "^6.19.2",
+    "razorpay": "^2.9.6",
+    "stripe": "^20.3.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.11"
+  }
+}

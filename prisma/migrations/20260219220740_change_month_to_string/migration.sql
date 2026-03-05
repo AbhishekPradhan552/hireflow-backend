@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "OrgUsage" ALTER COLUMN "month" SET DATA TYPE TEXT;
