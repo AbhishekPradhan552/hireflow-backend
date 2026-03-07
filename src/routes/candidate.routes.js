@@ -57,8 +57,8 @@ router.post(
   },
 );
 
-//get all candidates for a job
-//GET /jobs/:jobId/candidates?page=1&limit=10
+// get all candidates for a job
+// GET /jobs/:jobId/candidates?page=1&limit=10
 
 router.get(
   "/jobs/:jobId/candidates",
@@ -80,11 +80,9 @@ router.get(
           include: {
             resumes: {
               orderBy: { createdAt: "desc" },
-
               select: {
                 id: true,
-                confidenceScore: true,
-                scoreBreakdown: true,
+                hybridScore: true,
                 parseStatus: true,
               },
             },
@@ -93,6 +91,7 @@ router.get(
           skip,
           take: limit,
         }),
+
         prisma.candidate.count({
           where: {
             jobId,
@@ -102,6 +101,8 @@ router.get(
       ]);
 
       const formatted = candidates.map((c) => {
+        const bestResume = c.resumes.find((r) => r.id === c.bestResumeId);
+
         return {
           id: c.id,
           name: c.name,
@@ -110,14 +111,15 @@ router.get(
           status: c.status,
           createdAt: c.createdAt,
 
-          confidenceScore: c.bestScore ?? null,
-          //determine parseStatus from resumes list
-          parseStatus:
-            c.resumes.find((r) => r.id === c.bestResumeId)?.parseStatus ?? null,
+          // use hybrid score instead of confidence score
+          hybridScore: c.bestScore ?? null,
+
+          parseStatus: bestResume?.parseStatus ?? null,
 
           resumeCount: c.resumes.length,
         };
       });
+
       res.json({
         data: formatted,
         meta: {
@@ -141,7 +143,7 @@ router.get(
   requirePermission("candidate:read"),
   async (req, res) => {
     try {
-      const candidates = await prisma.candidate.findFirst({
+      const candidate = await prisma.candidate.findFirst({
         where: {
           id: req.params.id,
           orgId: req.user.orgId,
@@ -152,28 +154,115 @@ router.get(
             select: {
               id: true,
               originalName: true,
-              confidenceScore: true,
-              scoreBreakdown: true,
+              fileKey: true,
               parseStatus: true,
               parsedAt: true,
+              semanticScore: true,
+              hybridScore: true,
+              matchedSkills: true,
+              missingSkills: true,
+
               createdAt: true,
             },
           },
         },
       });
-      if (!candidates) {
+
+      if (!candidate) {
         return res.status(404).json({ error: "Candidate not found" });
       }
-      res.json(candidates);
+
+      // attach signed URLs
+      const resumesWithUrls = await Promise.all(
+        candidate.resumes.map(async (resume) => {
+          const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET_NAME,
+            Key: resume.fileKey,
+          });
+
+          const signedUrl = await getSignedUrl(s3, command, {
+            expiresIn: 60 * 5,
+          });
+
+          return {
+            ...resume,
+            downloadUrl: signedUrl,
+          };
+        }),
+      );
+
+      res.json({
+        ...candidate,
+        resumes: resumesWithUrls,
+      });
     } catch (err) {
-      console.error("GET /candidates/:id error: ", err);
+      console.error("GET /candidates/:id error:", err);
       res.status(500).json({ error: "Failed to fetch candidate" });
     }
   },
 );
 
+// GET ranked candidates for a job
+router.get(
+  "/jobs/:jobId/candidates/ranked",
+  authMiddleware,
+  requirePermission("candidate:read"),
+  async (req, res) => {
+    const { jobId } = req.params;
+
+    try {
+      const candidates = await prisma.candidate.findMany({
+        where: {
+          jobId,
+          orgId: req.user.orgId,
+        },
+        include: {
+          resumes: {
+            select: {
+              id: true,
+              hybridScore: true,
+              parseStatus: true,
+            },
+          },
+        },
+        orderBy: {
+          bestScore: "desc",
+        },
+      });
+
+      const ranked = candidates.map((c) => {
+        const bestResume = c.resumes.find((r) => r.id === c.bestResumeId);
+
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          status: c.status,
+          createdAt: c.createdAt,
+
+          hybridScore: c.bestScore ?? null,
+
+          parseStatus: bestResume?.parseStatus ?? null,
+
+          resumeCount: c.resumes.length,
+        };
+      });
+
+      res.json({
+        jobId,
+        total: ranked.length,
+        data: ranked,
+      });
+    } catch (err) {
+      console.error("GET /jobs/:jobId/candidates/ranked error:", err);
+      res.status(500).json({ error: "Failed to fetch ranked candidates" });
+    }
+  },
+);
+
 //update candidate
-router.put(
+router.patch(
   "/candidates/:id",
   authMiddleware,
   requirePermission("candidate:update"),
@@ -185,6 +274,10 @@ router.put(
       if (email !== undefined) data.email = email;
       if (phone !== undefined) data.phone = phone;
       if (status !== undefined) data.status = status;
+
+      if (Object.keys(data).length === 0) {
+        return res.status(400).json({ error: "No fields provided to update" });
+      }
 
       const result = await prisma.candidate.updateMany({
         where: {
@@ -198,7 +291,7 @@ router.put(
       }
       res.json({ success: true });
     } catch (err) {
-      console.error("PUT /candidates/:id error:", err);
+      console.error("PATCH /candidates/:id error:", err);
       res.status(500).json({ error: "Failed to update candidate" });
     }
   },
@@ -223,7 +316,7 @@ router.delete(
       res.json({ success: true });
     } catch (err) {
       console.error("DELETE /candidates/:id error:", err);
-      return res.status(404).json({ error: "Failed to delete candidate" });
+      return res.status(500).json({ error: "Failed to delete candidate" });
     }
   },
 );
@@ -300,6 +393,111 @@ router.post(
     } catch (err) {
       console.error("UPLOAD ERROR:", err);
       res.status(500).json({ error: err.message });
+    }
+  },
+);
+
+// GET job statistics
+router.get(
+  "/jobs/:jobId/stats",
+  authMiddleware,
+  requirePermission("candidate:read"),
+  async (req, res) => {
+    const { jobId } = req.params;
+
+    try {
+      const candidates = await prisma.candidate.findMany({
+        where: {
+          jobId,
+          orgId: req.user.orgId,
+        },
+        select: {
+          bestScore: true,
+          resumes: {
+            select: {
+              parseStatus: true,
+            },
+          },
+        },
+      });
+
+      const totalCandidates = candidates.length;
+
+      let parsed = 0;
+      let pending = 0;
+      let scores = [];
+
+      candidates.forEach((c) => {
+        if (c.bestScore !== null) scores.push(c.bestScore);
+
+        c.resumes.forEach((r) => {
+          if (r.parseStatus === "COMPLETED") parsed++;
+          if (r.parseStatus === "PENDING") pending++;
+        });
+      });
+
+      const avgScore =
+        scores.length > 0
+          ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+          : null;
+
+      const topScore = scores.length > 0 ? Math.max(...scores) : null;
+
+      res.json({
+        jobId,
+        totalCandidates,
+        parsedResumes: parsed,
+        pendingResumes: pending,
+        averageScore: avgScore,
+        topScore,
+      });
+    } catch (err) {
+      console.error("GET /jobs/:jobId/stats error:", err);
+      res.status(500).json({ error: "Failed to fetch job stats" });
+    }
+  },
+);
+
+// GET job pipeline summary
+router.get(
+  "/jobs/:jobId/pipeline",
+  authMiddleware,
+  requirePermission("candidate:read"),
+  async (req, res) => {
+    const { jobId } = req.params;
+
+    try {
+      const candidates = await prisma.candidate.findMany({
+        where: {
+          jobId,
+          orgId: req.user.orgId,
+        },
+        select: {
+          status: true,
+        },
+      });
+
+      const pipeline = {
+        APPLIED: 0,
+        SCREENING: 0,
+        INTERVIEW: 0,
+        HIRED: 0,
+        REJECTED: 0,
+      };
+
+      candidates.forEach((c) => {
+        if (pipeline[c.status] !== undefined) {
+          pipeline[c.status]++;
+        }
+      });
+
+      res.json({
+        jobId,
+        pipeline,
+      });
+    } catch (err) {
+      console.error("GET /jobs/:jobId/pipeline error:", err);
+      res.status(500).json({ error: "Failed to fetch pipeline data" });
     }
   },
 );

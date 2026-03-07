@@ -10,6 +10,7 @@ import orgRoutes from "./routes/org.routes.js";
 import billingRoutes from "./routes/billing.routes.js";
 import testBillingRoutes from "./routes/testBilling.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
+import debugRoutes from "./routes/debug.routes.js";
 
 const app = express();
 
@@ -27,5 +28,6 @@ app.use("/org", orgRoutes);
 app.use("/billing", billingRoutes);
 app.use("/test", testBillingRoutes);
 app.use("/webhooks", webhookRoutes);
+app.use(debugRoutes);
 
 export default app;

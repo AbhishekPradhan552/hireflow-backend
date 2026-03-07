@@ -8,9 +8,52 @@ import { resumeQueue } from "../queue/resume.queue.js";
 //import { getBufferFromS3 } from "../services/storage/s3.service.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3 } from "../config/s3Client.js";
 
 const router = express.Router();
+
+//signed url download(new route)
+
+router.get(
+  "/resumes/:id/download-url",
+  authMiddleware,
+  requirePermission("candidate: read"),
+  async (req, res) => {
+    try {
+      const resumeId = req.params.id;
+      const orgId = req.user.orgId;
+
+      const resume = await prisma.resume.findFirst({
+        where: {
+          id: resumeId,
+          orgId,
+        },
+      });
+      if (!resume) {
+        return res.status(404).json({ error: "Resume not found" });
+      }
+
+      const command = new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
+        Key: resume.fileKey,
+      });
+
+      const signedUrl = await getSignedUrl(s3, command, {
+        expiresIn: 60 * 5, // 5 min
+      });
+
+      return res.json({
+        url: signedUrl,
+        filename: resume.originalName,
+      });
+    } catch (err) {
+      console.error("SIGNED URL ERROR:", err);
+      res.status(500).json({ error: "Failed to generate download URL" });
+    }
+  },
+);
+
 //DOWNLOAD RESUME from S3
 
 router.get(
@@ -83,6 +126,11 @@ router.get(
           parsedText: true,
           parsedAt: true,
           parseError: true,
+
+          hybridScore: true,
+          matchedSkills: true,
+          missingSkills: true,
+
           candidateId: true,
           createdAt: true,
         },
