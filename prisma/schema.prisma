@@ -51,7 +51,7 @@ model Candidate {
   jobId String
   orgId String
   
-  job Job          @relation(fields: [jobId], references: [id])
+  job Job          @relation(fields: [jobId], references: [id],  onDelete: Cascade) 
   org Organization @relation(fields: [orgId], references: [id])
 
   bestResumeId   String?
@@ -109,7 +109,7 @@ model Resume {
   mimeType String
 
   candidateId String
-  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  candidate   Candidate @relation(fields: [candidateId], references: [id] , onDelete: Cascade)
 
   orgId String
   org   Organization @relation(fields: [orgId], references: [id])
