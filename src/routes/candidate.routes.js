@@ -8,7 +8,9 @@ import { uploadResume } from "../middleware/upload.middleware.js";
 import { resumeQueue } from "../queue/resume.queue.js";
 
 import { checkLimit } from "../middleware/planLimit.middleware.js";
-
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { s3 } from "../config/s3Client.js";
 import crypto from "crypto";
 
 const router = express.Router();
@@ -458,7 +460,7 @@ router.get(
   },
 );
 
-// GET job pipeline summary
+// GET candidate pipeline summary
 router.get(
   "/jobs/:jobId/pipeline",
   authMiddleware,
