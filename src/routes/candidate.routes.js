@@ -157,13 +157,15 @@ router.get(
               id: true,
               originalName: true,
               fileKey: true,
+              fileSize: true,
+              mimeType: true,
               parseStatus: true,
               parsedAt: true,
               semanticScore: true,
               hybridScore: true,
               matchedSkills: true,
               missingSkills: true,
-
+              aiStatus: true,
               createdAt: true,
             },
           },
@@ -480,16 +482,17 @@ router.get(
       });
 
       const pipeline = {
-        APPLIED: 0,
-        SCREENING: 0,
-        INTERVIEW: 0,
-        HIRED: 0,
-        REJECTED: 0,
+        applied: 0,
+        screening: 0,
+        interview: 0,
+        hired: 0,
+        rejected: 0,
       };
 
       candidates.forEach((c) => {
-        if (pipeline[c.status] !== undefined) {
-          pipeline[c.status]++;
+        const key = (c.status || '').toLowerCase();
+        if (key && pipeline[key] !== undefined) {
+          pipeline[key]++;
         }
       });
 

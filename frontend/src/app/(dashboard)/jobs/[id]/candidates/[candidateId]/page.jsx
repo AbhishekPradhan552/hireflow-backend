@@ -72,7 +72,7 @@ export default function CandidateDetailPage() {
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('resume', file);
 
     setUploadingResume(true);
     try {

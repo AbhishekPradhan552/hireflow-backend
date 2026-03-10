@@ -31,11 +31,11 @@ const addCandidateSchema = z.object({
 });
 
 const PIPELINE_COLORS = {
-  APPLIED: '#6366f1',
-  SCREENING: '#f59e0b',
-  INTERVIEW: '#8b5cf6',
-  HIRED: '#10b981',
-  REJECTED: '#ef4444',
+  applied: '#6366f1',
+  screening: '#f59e0b',
+  interview: '#8b5cf6',
+  hired: '#10b981',
+  rejected: '#ef4444',
 };
 
 export default function JobDetailPage() {
