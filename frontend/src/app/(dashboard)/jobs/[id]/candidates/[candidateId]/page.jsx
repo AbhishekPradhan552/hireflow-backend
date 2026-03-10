@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { Candidate, Resume } from '@/types';
 import { formatDate, getStatusColor, getParseStatusColor, getScoreColor } from '@/lib/utils';
 import {
   ArrowLeft, Loader2, Upload, RefreshCw, Trash2,
@@ -17,16 +16,16 @@ const CANDIDATE_STATUSES = ['applied', 'screening', 'interview', 'hired', 'rejec
 export default function CandidateDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const jobId = params.id as string;
-  const candidateId = params.candidateId as string;
+  const jobId = params.id;
+  const candidateId = params.candidateId;
 
-  const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
-  const [deletingResume, setDeletingResume] = useState<string | null>(null);
-  const [reparsingResume, setReparsingResume] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deletingResume, setDeletingResume] = useState(null);
+  const [reparsingResume, setReparsingResume] = useState(null);
+  const fileInputRef = useRef(null);
 
   const fetchCandidate = useCallback(async () => {
     try {
@@ -44,7 +43,7 @@ export default function CandidateDetailPage() {
     fetchCandidate();
   }, [fetchCandidate]);
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = async (status) => {
     setUpdatingStatus(true);
     try {
       await api.patch(`/candidates/${candidateId}`, { status });
@@ -68,7 +67,7 @@ export default function CandidateDetailPage() {
     }
   };
 
-  const handleUploadResume = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadResume = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -82,16 +81,15 @@ export default function CandidateDetailPage() {
       });
       toast.success('Resume uploaded and queued for processing');
       fetchCandidate();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Failed to upload resume');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Failed to upload resume');
     } finally {
       setUploadingResume(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleDeleteResume = async (resumeId: string) => {
+  const handleDeleteResume = async (resumeId) => {
     if (!confirm('Delete this resume?')) return;
     setDeletingResume(resumeId);
     try {
@@ -105,7 +103,7 @@ export default function CandidateDetailPage() {
     }
   };
 
-  const handleReparseResume = async (resumeId: string) => {
+  const handleReparseResume = async (resumeId) => {
     setReparsingResume(resumeId);
     try {
       await api.post(`/resumes/${resumeId}/reparse`);
@@ -247,7 +245,7 @@ export default function CandidateDetailPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {candidate.resumes.map((resume: Resume) => (
+            {candidate.resumes.map((resume) => (
               <div key={resume.id} className="p-6">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div className="flex items-start gap-3">

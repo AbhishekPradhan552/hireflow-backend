@@ -3,12 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { Job, JobsResponse } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Plus, Search, Briefcase, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export default function JobsPage() {
-  const [jobsData, setJobsData] = useState<JobsResponse | null>(null);
+  const [jobsData, setJobsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -17,7 +16,7 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<JobsResponse>(`/jobs?page=${page}&limit=${limit}`);
+      const { data } = await api.get(`/jobs?page=${page}&limit=${limit}`);
       setJobsData(data);
     } catch {
       // silently handle
@@ -92,14 +91,20 @@ export default function JobsPage() {
           <>
             {/* Table header */}
             <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 bg-gray-50 rounded-t-xl">
-              <div className="col-span-5 text-xs font-medium text-gray-500 uppercase tracking-wide">Title</div>
-              <div className="col-span-4 text-xs font-medium text-gray-500 uppercase tracking-wide">Skills</div>
-              <div className="col-span-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Created</div>
+              <div className="col-span-5 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Title
+              </div>
+              <div className="col-span-4 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Skills
+              </div>
+              <div className="col-span-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Created
+              </div>
               <div className="col-span-1" />
             </div>
 
             <div className="divide-y divide-gray-50">
-              {filteredJobs.map((job: Job) => (
+              {filteredJobs.map((job) => (
                 <Link
                   key={job.id}
                   href={`/jobs/${job.id}`}
@@ -124,7 +129,9 @@ export default function JobsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="col-span-2 text-sm text-gray-500">{formatDate(job.createdAt)}</div>
+                  <div className="col-span-2 text-sm text-gray-500">
+                    {formatDate(job.createdAt)}
+                  </div>
                   <div className="col-span-1 flex justify-end">
                     <span className="text-xs text-indigo-600 font-medium">View →</span>
                   </div>
@@ -136,7 +143,8 @@ export default function JobsPage() {
             {jobsData && jobsData.meta.totalPages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
                 <p className="text-sm text-gray-500">
-                  Page {jobsData.meta.page} of {jobsData.meta.totalPages} ({jobsData.meta.total} total)
+                  Page {jobsData.meta.page} of {jobsData.meta.totalPages} (
+                  {jobsData.meta.total} total)
                 </p>
                 <div className="flex items-center gap-2">
                   <button

@@ -4,14 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
-import { Job, OrgUsage } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { Briefcase, FileText, TrendingUp, Plus, Loader2, ArrowRight } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [usage, setUsage] = useState<OrgUsage | null>(null);
+  const [jobs, setJobs] = useState([]);
+  const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,7 +31,9 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const usagePercent = usage ? Math.min(100, Math.round((usage.resumesParsed / (usage.limit || 1)) * 100)) : 0;
+  const usagePercent = usage
+    ? Math.min(100, Math.round((usage.resumesParsed / (usage.limit || 1)) * 100))
+    : 0;
 
   if (loading) {
     return (
@@ -49,36 +50,32 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-900">
           Welcome back, {user?.email.split('@')[0]} 👋
         </h1>
-        <p className="text-gray-500 mt-1">Here&apos;s what&apos;s happening with your hiring pipeline.</p>
+        <p className="text-gray-500 mt-1">
+          Here&apos;s what&apos;s happening with your hiring pipeline.
+        </p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-              <Briefcase className="w-6 h-6 text-indigo-600" />
-            </div>
+          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-4">
+            <Briefcase className="w-6 h-6 text-indigo-600" />
           </div>
           <p className="text-3xl font-bold text-gray-900">{jobs.length}</p>
           <p className="text-sm text-gray-500 mt-1">Active Jobs</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-green-600" />
-            </div>
+          <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+            <FileText className="w-6 h-6 text-green-600" />
           </div>
           <p className="text-3xl font-bold text-gray-900">{usage?.resumesParsed ?? '—'}</p>
           <p className="text-sm text-gray-500 mt-1">Resumes Parsed</p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
-            </div>
+          <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
+            <TrendingUp className="w-6 h-6 text-purple-600" />
           </div>
           <p className="text-3xl font-bold text-gray-900">
             {usage ? `${usagePercent}%` : '—'}
@@ -99,7 +96,11 @@ export default function DashboardPage() {
           <div className="w-full bg-gray-100 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${
-                usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-yellow-500' : 'bg-indigo-600'
+                usagePercent >= 90
+                  ? 'bg-red-500'
+                  : usagePercent >= 70
+                  ? 'bg-yellow-500'
+                  : 'bg-indigo-600'
               }`}
               style={{ width: `${usagePercent}%` }}
             />
@@ -124,7 +125,9 @@ export default function DashboardPage() {
           <div className="px-6 py-12 text-center">
             <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">No jobs yet</p>
-            <p className="text-sm text-gray-400 mt-1">Create your first job posting to get started</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Create your first job posting to get started
+            </p>
             <Link
               href="/jobs/new"
               className="mt-4 inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
@@ -147,7 +150,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {job.requiredSkills?.slice(0, 3).map((skill) => (
-                    <span key={skill} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full hidden sm:inline-flex">
+                    <span
+                      key={skill}
+                      className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full hidden sm:inline-flex"
+                    >
                       {skill}
                     </span>
                   ))}

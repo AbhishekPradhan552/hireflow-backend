@@ -13,7 +13,7 @@ const navItems = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -56,7 +56,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+            const isActive =
+              pathname === href ||
+              (href !== '/dashboard' && pathname.startsWith(href));
             return (
               <Link
                 key={href}
@@ -68,7 +70,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 )}
               >
-                <Icon className={cn('w-5 h-5', isActive ? 'text-indigo-600' : 'text-gray-400')} />
+                <Icon
+                  className={cn(
+                    'w-5 h-5',
+                    isActive ? 'text-indigo-600' : 'text-gray-400'
+                  )}
+                />
                 {label}
               </Link>
             );
@@ -97,9 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
 }

@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { Subscription, OrgUsage } from '@/types';
 import { CheckCircle2, Loader2, Zap, Star, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PLANS = [
   {
-    id: 'FREE' as const,
+    id: 'FREE',
     name: 'Free',
     price: '$0',
     period: '/month',
@@ -26,7 +25,7 @@ const PLANS = [
     limit: 50,
   },
   {
-    id: 'PRO' as const,
+    id: 'PRO',
     name: 'Pro',
     price: '$49',
     period: '/month',
@@ -45,7 +44,7 @@ const PLANS = [
     popular: true,
   },
   {
-    id: 'TEAM' as const,
+    id: 'TEAM',
     name: 'Team',
     price: '$149',
     period: '/month',
@@ -67,10 +66,10 @@ const PLANS = [
 ];
 
 export default function BillingPage() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [usage, setUsage] = useState<OrgUsage | null>(null);
+  const [subscription, setSubscription] = useState(null);
+  const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState<string | null>(null);
+  const [upgrading, setUpgrading] = useState(null);
   const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
@@ -91,23 +90,22 @@ export default function BillingPage() {
     fetchData();
   }, []);
 
-  const handleUpgrade = async (plan: 'PRO' | 'TEAM') => {
+  const handleUpgrade = async (plan) => {
     setUpgrading(plan);
     try {
       await api.post('/billing/upgrade', { plan });
       toast.success(`Upgraded to ${plan} plan!`);
       const { data } = await api.get('/billing/current');
       setSubscription(data);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Failed to upgrade plan');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Failed to upgrade plan');
     } finally {
       setUpgrading(null);
     }
   };
 
   const handleCancel = async () => {
-    if (!confirm('Cancel your subscription? You\'ll be downgraded to the Free plan.')) return;
+    if (!confirm("Cancel your subscription? You'll be downgraded to the Free plan.")) return;
     setCanceling(true);
     try {
       await api.post('/billing/cancel');
@@ -189,7 +187,7 @@ export default function BillingPage() {
                   className={cn(
                     'h-2.5 rounded-full transition-all',
                     usage.limit === -1
-                      ? 'bg-green-500 w-0'
+                      ? 'bg-green-500'
                       : usagePercent >= 90
                       ? 'bg-red-500'
                       : usagePercent >= 70
@@ -214,7 +212,6 @@ export default function BillingPage() {
         {PLANS.map((plan) => {
           const isCurrentPlan = subscription?.plan === plan.id;
           const Icon = plan.icon;
-          const { iconBg, iconColor } = plan;
 
           return (
             <div
@@ -235,8 +232,8 @@ export default function BillingPage() {
                 </div>
               )}
 
-              <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center mb-4`}>
-                <Icon className={`w-6 h-6 ${iconColor}`} />
+              <div className={`w-12 h-12 rounded-xl ${plan.iconBg} flex items-center justify-center mb-4`}>
+                <Icon className={`w-6 h-6 ${plan.iconColor}`} />
               </div>
 
               <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
@@ -269,11 +266,10 @@ export default function BillingPage() {
                     onClick={() => handleUpgrade(plan.id)}
                     disabled={upgrading === plan.id}
                     className={cn(
-                      'w-full py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2',
+                      'w-full py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed',
                       plan.popular
                         ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                        : 'bg-gray-900 text-white hover:bg-gray-800',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
+                        : 'bg-gray-900 text-white hover:bg-gray-800'
                     )}
                   >
                     {upgrading === plan.id ? (

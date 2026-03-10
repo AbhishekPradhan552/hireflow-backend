@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { Job, Candidate, CandidatesResponse, JobStats, Pipeline } from '@/types';
 import { formatDate, getStatusColor, getScoreColor, cn } from '@/lib/utils';
 import {
   ArrowLeft, Loader2, Users, BarChart2, Settings,
@@ -18,23 +17,20 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 
-const TABS = ['Overview', 'Candidates', 'Settings'] as const;
-type Tab = typeof TABS[number];
+const TABS = ['Overview', 'Candidates', 'Settings'];
 
 const editJobSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(20),
 });
-type EditJobForm = z.infer<typeof editJobSchema>;
 
 const addCandidateSchema = z.object({
   name: z.string().min(2, 'Name required'),
   email: z.string().email('Valid email required'),
   phone: z.string().optional(),
 });
-type AddCandidateForm = z.infer<typeof addCandidateSchema>;
 
-const PIPELINE_COLORS: Record<string, string> = {
+const PIPELINE_COLORS = {
   APPLIED: '#6366f1',
   SCREENING: '#f59e0b',
   INTERVIEW: '#8b5cf6',
@@ -45,13 +41,13 @@ const PIPELINE_COLORS: Record<string, string> = {
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const jobId = params.id as string;
+  const jobId = params.id;
 
-  const [activeTab, setActiveTab] = useState<Tab>('Overview');
-  const [job, setJob] = useState<Job | null>(null);
-  const [stats, setStats] = useState<JobStats | null>(null);
-  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
-  const [candidates, setCandidates] = useState<CandidatesResponse | null>(null);
+  const [activeTab, setActiveTab] = useState('Overview');
+  const [job, setJob] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [pipeline, setPipeline] = useState(null);
+  const [candidates, setCandidates] = useState(null);
   const [loading, setLoading] = useState(true);
   const [candidatePage, setCandidatePage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -64,14 +60,14 @@ export default function JobDetailPage() {
     handleSubmit: handleEditSubmit,
     reset: resetEdit,
     formState: { errors: editErrors },
-  } = useForm<EditJobForm>({ resolver: zodResolver(editJobSchema) });
+  } = useForm({ resolver: zodResolver(editJobSchema) });
 
   const {
     register: registerCandidate,
     handleSubmit: handleCandidateSubmit,
     reset: resetCandidate,
     formState: { errors: candidateErrors },
-  } = useForm<AddCandidateForm>({ resolver: zodResolver(addCandidateSchema) });
+  } = useForm({ resolver: zodResolver(addCandidateSchema) });
 
   const fetchJob = useCallback(async () => {
     try {
@@ -126,7 +122,7 @@ export default function JobDetailPage() {
     }
   }, [activeTab, fetchCandidates]);
 
-  const onEditSubmit = async (data: EditJobForm) => {
+  const onEditSubmit = async (data) => {
     setSavingJob(true);
     try {
       await api.put(`/jobs/${jobId}`, data);
@@ -152,7 +148,7 @@ export default function JobDetailPage() {
     }
   };
 
-  const onAddCandidate = async (data: AddCandidateForm) => {
+  const onAddCandidate = async (data) => {
     setAddingCandidate(true);
     try {
       await api.post(`/jobs/${jobId}/candidates`, data);
@@ -161,9 +157,8 @@ export default function JobDetailPage() {
       setShowAddModal(false);
       fetchCandidates();
       fetchStats();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Failed to add candidate');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Failed to add candidate');
     } finally {
       setAddingCandidate(false);
     }
@@ -330,7 +325,7 @@ export default function JobDetailPage() {
                   <div className="col-span-1" />
                 </div>
                 <div className="divide-y divide-gray-50">
-                  {candidates.data.map((c: Candidate) => (
+                  {candidates.data.map((c) => (
                     <div key={c.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center">
                       <div className="col-span-4">
                         <p className="text-sm font-medium text-gray-900">{c.name}</p>

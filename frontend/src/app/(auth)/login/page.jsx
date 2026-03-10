@@ -15,8 +15,6 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
-
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -26,19 +24,18 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({
+  } = useForm({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data) => {
     setIsLoading(true);
     try {
       await login(data.email, data.password);
       toast.success('Welcome back!');
       router.push('/dashboard');
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Invalid credentials');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Invalid credentials');
     } finally {
       setIsLoading(false);
     }

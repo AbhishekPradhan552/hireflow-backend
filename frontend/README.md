@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HireFlow Frontend
+
+A Next.js 14 (App Router) frontend for the HireFlow AI-powered hiring platform. Built with plain **JavaScript + JSX** (no TypeScript), Tailwind CSS, and Axios.
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Language**: JavaScript / JSX
+- **Styling**: Tailwind CSS
+- **HTTP Client**: Axios
+- **Forms**: react-hook-form + Zod
+- **Charts**: Recharts
+- **Icons**: lucide-react
+- **Notifications**: react-hot-toast
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── (auth)/           # Login & Register pages
+│   ├── (dashboard)/      # Protected dashboard pages
+│   │   ├── dashboard/    # Overview + usage stats
+│   │   ├── jobs/         # Jobs list, create, detail
+│   │   │   └── [id]/
+│   │   │       └── candidates/[candidateId]/
+│   │   └── billing/      # Plans & subscription
+│   ├── layout.jsx        # Root layout
+│   └── page.jsx          # Redirects to /dashboard
+├── contexts/
+│   └── AuthContext.jsx   # Auth state (login/logout/register)
+├── lib/
+│   ├── api.js            # Axios instance with JWT interceptors
+│   └── utils.js          # Helper functions (cn, formatDate, colors)
+└── middleware.js          # Route protection via cookies
+```
 
 ## Getting Started
 
-First, run the development server:
+### 1. Configure environment
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Create `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:5001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install & run
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+### 3. Start the backend
 
-To learn more about Next.js, take a look at the following resources:
+Make sure the HireFlow backend is running on port 5001 (see the root README).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Route | Description |
+|-------|-------------|
+| `/login` | Sign in with email + password |
+| `/register` | Create a new account |
+| `/dashboard` | Overview: recent jobs, usage stats |
+| `/jobs` | Paginated job list with skill search |
+| `/jobs/new` | Create a job (AI extracts skills) |
+| `/jobs/[id]` | Job detail: Overview, Candidates, Settings tabs |
+| `/jobs/[id]/candidates/[id]` | Candidate detail: resumes, scores, skills |
+| `/billing` | Plan comparison + upgrade / cancel |
 
-## Deploy on Vercel
+## Authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- JWT stored in `localStorage` AND as a cookie (for middleware SSR route protection)
+- `src/middleware.js` redirects unauthenticated users to `/login`
+- Axios interceptor automatically attaches `Authorization: Bearer <token>`
+- 401 responses auto-redirect to `/login`

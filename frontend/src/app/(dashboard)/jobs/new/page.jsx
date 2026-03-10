@@ -15,8 +15,6 @@ const jobSchema = z.object({
   description: z.string().min(20, 'Description must be at least 20 characters'),
 });
 
-type JobForm = z.infer<typeof jobSchema>;
-
 export default function NewJobPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -25,19 +23,18 @@ export default function NewJobPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<JobForm>({
+  } = useForm({
     resolver: zodResolver(jobSchema),
   });
 
-  const onSubmit = async (data: JobForm) => {
+  const onSubmit = async (data) => {
     setIsLoading(true);
     try {
       const { data: job } = await api.post('/jobs', data);
       toast.success('Job created successfully!');
       router.push(`/jobs/${job.id}`);
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Failed to create job');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Failed to create job');
     } finally {
       setIsLoading(false);
     }
@@ -79,14 +76,12 @@ export default function NewJobPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Job Description <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <textarea
-                {...register('description')}
-                rows={8}
-                placeholder="Describe the role, responsibilities, requirements, and qualifications..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition resize-none"
-              />
-            </div>
+            <textarea
+              {...register('description')}
+              rows={8}
+              placeholder="Describe the role, responsibilities, requirements, and qualifications..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition resize-none"
+            />
             {errors.description && (
               <p className="mt-1.5 text-sm text-red-600">{errors.description.message}</p>
             )}
@@ -94,7 +89,8 @@ export default function NewJobPage() {
             <div className="mt-2 flex items-start gap-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
               <Sparkles className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
               <p className="text-xs text-indigo-700">
-                <strong>AI Skill Extraction:</strong> HireFlow will automatically extract required skills from your job description and use them to rank and match candidates.
+                <strong>AI Skill Extraction:</strong> HireFlow will automatically extract required
+                skills from your job description and use them to rank and match candidates.
               </p>
             </div>
           </div>

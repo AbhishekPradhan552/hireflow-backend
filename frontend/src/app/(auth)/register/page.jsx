@@ -21,8 +21,6 @@ const registerSchema = z
     path: ['confirmPassword'],
   });
 
-type RegisterForm = z.infer<typeof registerSchema>;
-
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { register: registerUser } = useAuth();
@@ -32,19 +30,18 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterForm>({
+  } = useForm({
     resolver: zodResolver(registerSchema),
   });
 
-  const onSubmit = async (data: RegisterForm) => {
+  const onSubmit = async (data) => {
     setIsLoading(true);
     try {
       await registerUser(data.email, data.password);
       toast.success('Account created successfully!');
       router.push('/dashboard');
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { error?: string } } };
-      toast.error(error.response?.data?.error || 'Registration failed. Please try again.');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
