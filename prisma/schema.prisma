@@ -45,7 +45,7 @@ model Candidate {
   name      String
   email     String
   phone     String?
-  status    String   @default("applied")
+  status    CandidateStatus   @default(APPLIED)
   createdAt DateTime @default(now())
 
   jobId String
@@ -59,9 +59,10 @@ model Candidate {
 
   resumes Resume[]
 
+  @@unique([jobId , email])
   @@index([jobId])
   @@index([orgId])
-  @@index([bestResumeId])
+  @@index([jobId, status])
 }
 
 model Organization {
@@ -235,4 +236,13 @@ enum JobAIStatus {
   EMBEDDING
   COMPLETED
   FAILED
+}
+
+enum CandidateStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
 }
