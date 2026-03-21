@@ -3,6 +3,12 @@
   "type": "module",
   "version": "1.0.0",
   "main": "src/server.js",
+  "_moduleAliases": {
+    "@config": "src/config",
+    "@ai": "src/ai",
+    "@workers": "src/workers",
+    "@utils": "src/utils"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
@@ -28,10 +34,13 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "groq-sdk": "^1.1.1",
     "ioredis": "^5.9.2",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.11.0",
+    "module-alias": "^2.3.4",
     "multer": "^2.0.2",
+    "openai": "^6.29.0",
     "pdfjs-dist": "^5.4.624",
     "prisma": "^6.19.2",
     "razorpay": "^2.9.6",

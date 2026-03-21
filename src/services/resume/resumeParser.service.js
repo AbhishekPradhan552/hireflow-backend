@@ -59,6 +59,7 @@ export async function parseResume(resumeId) {
         data: {
           parsedText: text,
           parsedData,
+
           confidenceScore: 80, //temp fixed score
           scoreBreakdown: {},
           parseStatus: "COMPLETED",

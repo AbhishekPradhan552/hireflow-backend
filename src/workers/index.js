@@ -1,3 +1,5 @@
+import "module-alias/register";
+
 // Import all workers so they auto-start
 
 import "./resume.worker.js";

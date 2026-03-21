@@ -46,9 +46,9 @@ router.post(
           name,
           email,
           phone,
-
           jobId,
           orgId: req.user.orgId,
+          status: "APPLIED",
         },
       });
       res.status(201).json(candidates);
@@ -119,6 +119,7 @@ router.get(
           parseStatus: bestResume?.parseStatus ?? null,
 
           resumeCount: c.resumes.length,
+          bestResumeId: bestResume?.id ?? null,
         };
       });
 
@@ -163,7 +164,9 @@ router.get(
               hybridScore: true,
               matchedSkills: true,
               missingSkills: true,
-
+              aiSummary: true,
+              aiStatus: true,
+              aiProcessedAt: true,
               createdAt: true,
             },
           },
@@ -408,35 +411,55 @@ router.get(
     const { jobId } = req.params;
 
     try {
-      const candidates = await prisma.candidate.findMany({
+      const orgId = req.user.orgId;
+      // start of current month (for usage reset)
+      const startOfMonth = new Date(
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        1,
+      );
+      //total candidates
+
+      const totalCandidates = await prisma.candidate.count({
         where: {
           jobId,
-          orgId: req.user.orgId,
+          orgId,
         },
-        select: {
-          bestScore: true,
-          resumes: {
-            select: {
-              parseStatus: true,
-            },
+      });
+
+      // resumes parsed this month
+
+      const parsedResumes = await prisma.resume.count({
+        where: {
+          parseStatus: "COMPLETED",
+          createdAt: {
+            gte: startOfMonth,
+          },
+          candidate: { jobId, orgId },
+        },
+      });
+
+      //resumes still pending
+      const pendingResumes = await prisma.resume.count({
+        where: {
+          parseStatus: "PENDING",
+          candidate: { jobId, orgId },
+        },
+      });
+
+      //scores for analytics
+      const scoredCandidates = await prisma.candidate.findMany({
+        where: {
+          jobId,
+          orgId,
+          bestScore: {
+            not: null,
           },
         },
+        select: { bestScore: true },
       });
 
-      const totalCandidates = candidates.length;
-
-      let parsed = 0;
-      let pending = 0;
-      let scores = [];
-
-      candidates.forEach((c) => {
-        if (c.bestScore !== null) scores.push(c.bestScore);
-
-        c.resumes.forEach((r) => {
-          if (r.parseStatus === "COMPLETED") parsed++;
-          if (r.parseStatus === "PENDING") pending++;
-        });
-      });
+      const scores = scoredCandidates.map((c) => c.bestScore);
 
       const avgScore =
         scores.length > 0
@@ -448,8 +471,8 @@ router.get(
       res.json({
         jobId,
         totalCandidates,
-        parsedResumes: parsed,
-        pendingResumes: pending,
+        parsedResumes,
+        pendingResumes,
         averageScore: avgScore,
         topScore,
       });
@@ -475,21 +498,25 @@ router.get(
           orgId: req.user.orgId,
         },
         select: {
+          id: true,
+          name: true,
+          email: true,
           status: true,
         },
       });
 
       const pipeline = {
-        APPLIED: 0,
-        SCREENING: 0,
-        INTERVIEW: 0,
-        HIRED: 0,
-        REJECTED: 0,
+        APPLIED: [],
+        SCREENING: [],
+        INTERVIEW: [],
+        OFFER: [],
+        HIRED: [],
+        REJECTED: [],
       };
 
       candidates.forEach((c) => {
-        if (pipeline[c.status] !== undefined) {
-          pipeline[c.status]++;
+        if (pipeline[c.status]) {
+          pipeline[c.status].push(c);
         }
       });
 
@@ -504,4 +531,46 @@ router.get(
   },
 );
 
+//change candidate pipeline status
+router.patch(
+  "/candidates/:id/status",
+  authMiddleware,
+  requirePermission("candidate:update"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      "APPLIED",
+      "SCREENING",
+      "INTERVIEW",
+      "OFFER",
+      "HIRED",
+      "REJECTED",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    try {
+      const candidate = await prisma.candidate.findFirst({
+        where: { id, orgId: req.user.orgId },
+      });
+
+      if (!candidate) {
+        return res.status(404).json({ error: "Candidate not found" });
+      }
+
+      const updated = await prisma.candidate.update({
+        where: { id },
+        data: { status },
+      });
+      res.json(updated);
+    } catch (err) {
+      console.error("STATUS UPDATE ERROR:", err);
+      res.status(500).json({ error: "Failed to update candidate status" });
+    }
+  },
+);
 export default router;

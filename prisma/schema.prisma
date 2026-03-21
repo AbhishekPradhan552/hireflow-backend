@@ -144,6 +144,8 @@ model Resume {
   aiProcessedAt            DateTime?
   aiStatus ResumeAIStatus  @default(PENDING)
 
+  aiSummary   String?
+
   createdAt   DateTime          @default(now())
 
   @@index([candidateId])

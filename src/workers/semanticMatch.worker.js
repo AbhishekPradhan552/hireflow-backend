@@ -3,6 +3,8 @@ import { redis } from "../queue/connection.js";
 import prisma from "../lib/prisma.js";
 import { computeSemanticMatch } from "../ai/matching/semantic.engine.js";
 import { evaluateJobMatch } from "../services/resume/jobMatchEvaluator.service.js";
+import { generateSummary } from "../ai/resume/generateSummary.js";
+
 const worker = new Worker(
   "semanticMatchQueue",
   async (job) => {
@@ -100,6 +102,21 @@ const worker = new Worker(
       hybridScore,
     });
 
+    // Generate AI summary
+    let aiSummary = null;
+
+    try {
+      console.log("RESUME FULL OBJECT:", Object.keys(resume));
+      console.log("RESUME TEXT VALUE:", resume.parsedText);
+      if (resume.parsedText) {
+        console.log("🧠 Generating AI summary for resume:", resumeId);
+        aiSummary = await generateSummary(resume.parsedText);
+        console.log("✅ AI summary generated:", aiSummary);
+      }
+    } catch (err) {
+      console.error("AI summary generation failed:", err.message);
+    }
+
     await prisma.resume.update({
       where: { id: resumeId },
       data: {
@@ -109,6 +126,7 @@ const worker = new Worker(
         matchedSkills: jobMatch.matchedSkills ?? [],
         missingSkills: jobMatch.missingSkills ?? [],
         hybridScore,
+        aiSummary,
         aiStatus: "COMPLETED",
         aiProcessedAt: new Date(),
       },

@@ -11,6 +11,7 @@ import billingRoutes from "./routes/billing.routes.js";
 import testBillingRoutes from "./routes/testBilling.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 import debugRoutes from "./routes/debug.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 const app = express();
 
@@ -29,5 +30,6 @@ app.use("/billing", billingRoutes);
 app.use("/test", testBillingRoutes);
 app.use("/webhooks", webhookRoutes);
 app.use(debugRoutes);
+app.use("/api", publicRoutes);
 
 export default app;
