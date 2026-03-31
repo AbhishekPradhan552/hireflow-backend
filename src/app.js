@@ -34,7 +34,29 @@ app.use(
 
 app.use(express.json());
 
-app.get("/health", (_, res) => res.json({ status: "ok" }));
+import { redis } from "./utils/redis.js";
+
+app.get("/health", async (_, res) => {
+  try {
+    await redis.ping(); // check Redis
+
+    return res.json({
+      status: "ok",
+      services: {
+        redis: "connected",
+      },
+      uptime: process.uptime(),
+    });
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      services: {
+        redis: "down",
+      },
+      error: err.message,
+    });
+  }
+});
 
 app.use(authRoutes);
 app.use(userRoutes);
