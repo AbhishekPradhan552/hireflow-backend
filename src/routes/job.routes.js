@@ -23,59 +23,99 @@ router.post(
   requirePermission("job:create"),
   async (req, res) => {
     try {
-      if (!req.body) {
+      if (!req.body || Object.keys(req.body).length === 0) {
         return res.status(400).json({ error: "Request body is missing" });
       }
-      const { title, description } = req.body;
-      if (!title) {
+
+      const { title, description, requiredSkills: manualSkills } = req.body;
+
+      if (!title?.trim()) {
         return res.status(400).json({ error: "Title is required" });
       }
-      const orgId = req.user.orgId;
 
-      // auto extract required skills from description
-
-      const requiredSkills = extractSkills(description);
-
-      if (!requiredSkills.length) {
-        return res.status(400).json({
-          error: "No valid technical skills detected in job description",
-        });
+      if (!description?.trim()) {
+        return res.status(400).json({ error: "Description is required" });
       }
 
-      await registerSkills(requiredSkills);
-      const job = await prisma.job.create({
-        data: {
-          title,
-          description,
-          requiredSkills,
-          orgId,
-        },
-      });
+      if (description.length > 5000) {
+        return res.status(400).json({ error: "Description too long" });
+      }
 
-      //trigger embedding after job creation
+      const orgId = req.user?.orgId;
+      if (!orgId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
 
-      await jobEmbeddingQueue.add("generateEmbedding", { jobId: job.id });
+      // normalize helper
+      const normalize = (arr) =>
+        (Array.isArray(arr) ? arr : [])
+          .map((s) => String(s).toLowerCase().trim())
+          .filter(Boolean);
 
-      //increment usage after success
-      const month = getMonthStart();
-      await prisma.orgUsage.upsert({
-        where: {
-          orgId_month: {
+      const normalizedManual = normalize(manualSkills);
+
+      let extractedSkills = [];
+      try {
+        const extracted = extractSkills(description);
+        extractedSkills = normalize(extracted);
+      } catch (err) {
+        console.error("Skill extraction failed:", err);
+      }
+
+      const usedManual = normalizedManual.length > 0;
+
+      let requiredSkills = usedManual ? normalizedManual : extractedSkills;
+
+      requiredSkills = [...new Set(requiredSkills)].slice(0, 30);
+
+      // transaction (important)
+      const job = await prisma.$transaction(async (tx) => {
+        const job = await tx.job.create({
+          data: {
+            title: title.trim(),
+            description: description.trim(),
+            requiredSkills,
+            orgId,
+          },
+        });
+
+        const month = getMonthStart();
+
+        await tx.orgUsage.upsert({
+          where: {
+            orgId_month: { orgId, month },
+          },
+          update: {
+            jobsCreated: { increment: 1 },
+          },
+          create: {
             orgId,
             month,
+            jobsCreated: 1,
+            resumesParsed: 0,
           },
-        },
-        update: {
-          jobsCreated: { increment: 1 },
-        },
-        create: {
-          orgId,
-          month,
-          jobsCreated: 1,
-          resumesParsed: 0,
+        });
+
+        return job;
+      });
+
+      // side effects (non-blocking)
+      if (requiredSkills.length > 0) {
+        registerSkills(requiredSkills).catch(console.error);
+      }
+
+      jobEmbeddingQueue
+        .add("generateEmbedding", { jobId: job.id })
+        .catch(console.error);
+
+      res.status(201).json({
+        job,
+        meta: {
+          skillsDetected: requiredSkills.length,
+          skills: requiredSkills,
+          source: usedManual ? "manual" : "extracted",
         },
       });
-      res.status(201).json(job);
     } catch (err) {
       console.error("POST /jobs error:", err);
       res.status(500).json({ error: "Failed to create job" });
@@ -94,20 +134,50 @@ router.get(
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
+    const { status, search } = req.query;
+
     try {
+      const whereClause = {
+        orgId: req.user.orgId,
+        ...(status && status !== "all" && { status }),
+
+        ...(search && {
+          title: {
+            contains: search,
+            mode: "insensitive",
+          },
+        }),
+      };
+
       const [jobs, total] = await Promise.all([
         prisma.job.findMany({
-          where: { orgId: req.user.orgId },
+          where: whereClause,
           orderBy: { createdAt: "desc" },
           skip,
           take: limit,
+          include: {
+            _count: {
+              select: { candidates: true },
+            },
+          },
         }),
+
         prisma.job.count({
-          where: { orgId: req.user.orgId },
+          where: whereClause, // 👈 IMPORTANT (same filter for pagination)
         }),
       ]);
+
+      const formattedJobs = jobs.map((job) => ({
+        id: job.id,
+        title: job.title,
+        description: job.description ?? null,
+        createdAt: job.createdAt,
+        status: job.status, // 👈 ADD THIS
+        candidateCount: job._count.candidates,
+      }));
+
       res.json({
-        data: jobs,
+        data: formattedJobs,
         meta: {
           page,
           limit,
@@ -200,6 +270,37 @@ router.delete(
     } catch (err) {
       console.error("DELETE/jobs/:id error:", err);
       res.status(500).json({ error: "Failed to delete job" });
+    }
+  },
+);
+
+//update job status (open/closed)
+
+router.patch(
+  "/jobs/:id/status",
+  authMiddleware,
+  requirePermission("job:update"),
+  async (req, res) => {
+    const { status } = req.body;
+
+    try {
+      if (!["OPEN", "CLOSED"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status " });
+      }
+      const job = await prisma.job.update({
+        where: {
+          id: req.params.id,
+          orgId: req.user.orgId, //  important for multi-tenant safety
+        },
+        data: {
+          status,
+        },
+      });
+
+      res.json(job);
+    } catch (err) {
+      console.error("PATCH /jobs/:id/status error:", err);
+      res.status(500).json({ error: "Failed to update status" });
     }
   },
 );

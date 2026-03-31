@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
+import { getRolePermissions } from "../utils/permissions.js";
 
 //middleware to authenticate JWT token
 export async function authMiddleware(req, res, next) {
@@ -35,6 +36,7 @@ export async function authMiddleware(req, res, next) {
       id: decoded.userId,
       orgId: decoded.orgId,
       role: decoded.role,
+      permissions: getRolePermissions(decoded.role),
     };
     next();
   } catch (err) {

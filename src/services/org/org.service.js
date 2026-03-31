@@ -1,6 +1,6 @@
 import prisma from "../../lib/prisma.js";
 
-export async function createOrganizationWithSubscription(name, userId) {
+export async function createOrganizationWithSubscription(name, userId, role) {
   console.log("🔥 ORG SERVICE: function reached");
   return await prisma.$transaction(async (tx) => {
     console.log("🟡 TRANSACTION START");
@@ -11,7 +11,7 @@ export async function createOrganizationWithSubscription(name, userId) {
         members: {
           create: {
             userId,
-            role: "OWNER",
+            role,
           },
         },
       },

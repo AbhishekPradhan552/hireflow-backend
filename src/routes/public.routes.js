@@ -1,14 +1,21 @@
 import express from "express";
 import prisma from "../lib/prisma.js";
 import multer from "multer";
-
+import { dbRetry } from "../utils/dbRetry.js";
+import { resumeQueue } from "../queue/resume.queue.js";
 import { uploadToS3 } from "../services/storage/s3.service.js";
+
 const router = express.Router();
 
-// multer setup for file uploads-------
+// 🔹 Constants (avoid string bugs)
+const JOB_STATUS = {
+  OPEN: "OPEN",
+  CLOSED: "CLOSED",
+};
+
+// multer setup
 const upload = multer({
   storage: multer.memoryStorage(),
-
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -24,8 +31,9 @@ const upload = multer({
   },
 });
 
-//---------apply to job-----------
-
+// ==========================
+// 🔥 APPLY TO JOB
+// ==========================
 router.post(
   "/public/jobs/:jobId/apply",
   upload.single("resume"),
@@ -34,45 +42,66 @@ router.post(
       const { jobId } = req.params;
       const { name, email, phone } = req.body;
 
-      // ✅ Basic validation
       if (!name || !email) {
         return res.status(400).json({
+          success: false,
           error: "Name and email are required",
         });
       }
+
       if (!req.file) {
-        return res.status(400).json({ error: "Resume file is required" });
+        return res.status(400).json({
+          success: false,
+          error: "Resume file is required",
+        });
       }
 
-      //-----validate job------
       const job = await prisma.job.findUnique({
         where: { id: jobId },
       });
+
       if (!job) {
-        return res.status(404).json({ error: "Job not found" });
+        return res.status(404).json({
+          success: false,
+          error: "Job not found",
+        });
       }
 
-      // ✅ Check job status
-      if (job.status !== "open") {
-        return res.status(400).json({
+      // ✅ FIX: correct enum + correct status code
+      if (job.status !== JOB_STATUS.OPEN) {
+        return res.status(403).json({
+          success: false,
           error: "This job is no longer accepting applications",
         });
       }
 
-      //--prevent duplicate application-----
+      // ✅ FIX: case-insensitive email check
       const existingCandidate = await prisma.candidate.findFirst({
-        where: { jobId, email },
+        where: {
+          jobId,
+          email: {
+            equals: email,
+            mode: "insensitive",
+          },
+        },
       });
+
       if (existingCandidate) {
-        return res
-          .status(409)
-          .json({ error: "you have already applied for this job" });
+        return res.status(409).json({
+          success: false,
+          error: "You have already applied for this job",
+        });
       }
 
-      //------upload resume to s3-----
-      const uploadResult = await uploadToS3(req.file);
+      // upload to S3
+      const fileKey = `resumes/${jobId}/${Date.now()}-${req.file.originalname}`;
 
-      //---------create candidate-----------
+      await uploadToS3({
+        buffer: req.file.buffer,
+        key: fileKey,
+        mimeType: req.file.mimetype,
+      });
+
       const candidate = await prisma.candidate.create({
         data: {
           name,
@@ -80,84 +109,96 @@ router.post(
           phone,
           jobId: job.id,
           orgId: job.orgId,
+          status: "APPLIED",
         },
       });
 
-      //----create resume record-----
       const resume = await prisma.resume.create({
         data: {
           candidateId: candidate.id,
-          fileKey: uploadResult.fileKey,
+          orgId: job.orgId,
+          uploadedBy: "PUBLIC_APPLY",
+          fileKey,
           originalName: req.file.originalname,
-
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
           parseStatus: "PENDING",
           aiStatus: "PENDING",
         },
       });
 
-      //----response----
-      res.json({
+      await resumeQueue.add("parse-resume", {
+        resumeId: resume.id,
+      });
+
+      return res.json({
         success: true,
         message: "Application submitted successfully",
-        candidateId: candidate.id,
-        resumeId: resume.id,
+        data: {
+          candidateId: candidate.id,
+          resumeId: resume.id,
+        },
       });
     } catch (err) {
       console.error("Public apply error:", err);
 
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         error: "Failed to submit application",
       });
     }
   },
 );
 
+// ==========================
+// 🔥 GET PUBLIC JOB
+// ==========================
 router.get("/public/jobs/:jobId", async (req, res) => {
   try {
     const { jobId } = req.params;
-    //validate param
+
     if (!jobId) {
       return res.status(400).json({
         success: false,
         message: "Job ID is required",
       });
     }
-    // fetch only safe/public  fields
-    const job = await prisma.job.findUnique({
-      where: { id: jobId },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        requiredSkills: true,
-        status: true,
-      },
-    });
 
-    //job not found
+    const job = await dbRetry(() =>
+      prisma.job.findUnique({
+        where: { id: jobId },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          requiredSkills: true,
+          status: true,
+        },
+      }),
+    );
+
+    // ✅ Only true 404 case
     if (!job) {
       return res.status(404).json({
         success: false,
         message: "Job not found",
       });
     }
-    // job not open
-    if (job.status !== "open") {
-      return res.status(404).json({
-        success: false,
-        message: "This job is no longer accepting applications",
-      });
-    }
 
-    // clean response for frontend
+    // ✅ FIX: NEVER return 404 for closed job
     return res.status(200).json({
-      id: job.id,
-      title: job.title,
-      description: job.description || "",
-      requiredSkills: job.requiredSkills || [],
+      success: true,
+      data: {
+        id: job.id,
+        title: job.title,
+        description: job.description || "",
+        requiredSkills: job.requiredSkills || [],
+        isOpen: job.status === JOB_STATUS.OPEN,
+      },
     });
   } catch (error) {
     console.error("Error fetching public job:", error);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error",

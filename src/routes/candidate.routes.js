@@ -59,6 +59,52 @@ router.post(
   },
 );
 
+//get all candidates for all job globally
+
+router.get(
+  "/candidates",
+  authMiddleware,
+  requirePermission("candidate:read"),
+  async (req, res) => {
+    try {
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 20;
+      const skip = (page - 1) * limit;
+
+      const [candidates, total] = await Promise.all([
+        prisma.candidate.findMany({
+          where: {
+            orgId: req.user.orgId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          skip,
+          take: limit,
+        }),
+        prisma.candidate.count({
+          where: {
+            orgId: req.user.orgId,
+          },
+        }),
+      ]);
+
+      res.json({
+        data: candidates,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (err) {
+      console.error("GET /candidates error:", err);
+      res.status(500).json({ error: "Failed to fetch candidates" });
+    }
+  },
+);
+
 // get all candidates for a job
 // GET /jobs/:jobId/candidates?page=1&limit=10
 
@@ -68,17 +114,45 @@ router.get(
   requirePermission("candidate:read"),
   async (req, res) => {
     const { jobId } = req.params;
+    const { search, sort = "latest" } = req.query;
+
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
+    const searchQuery = search?.trim();
+
+    const where = {
+      jobId,
+      orgId: req.user.orgId,
+
+      ...(searchQuery && {
+        OR: [
+          {
+            name: {
+              contains: searchQuery,
+              mode: "insensitive",
+            },
+          },
+          {
+            email: {
+              contains: searchQuery,
+              mode: "insensitive",
+            },
+          },
+        ],
+      }),
+    };
+
+    let orderBy = { createdAt: "desc" };
+    if (sort === "score") {
+      orderBy = { bestScore: "desc" };
+    }
+
     try {
       const [candidates, total] = await Promise.all([
         prisma.candidate.findMany({
-          where: {
-            jobId,
-            orgId: req.user.orgId,
-          },
+          where,
           include: {
             resumes: {
               orderBy: { createdAt: "desc" },
@@ -89,17 +163,12 @@ router.get(
               },
             },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy,
           skip,
           take: limit,
         }),
 
-        prisma.candidate.count({
-          where: {
-            jobId,
-            orgId: req.user.orgId,
-          },
-        }),
+        prisma.candidate.count({ where }),
       ]);
 
       const formatted = candidates.map((c) => {
@@ -113,9 +182,7 @@ router.get(
           status: c.status,
           createdAt: c.createdAt,
 
-          // use hybrid score instead of confidence score
           hybridScore: c.bestScore ?? null,
-
           parseStatus: bestResume?.parseStatus ?? null,
 
           resumeCount: c.resumes.length,

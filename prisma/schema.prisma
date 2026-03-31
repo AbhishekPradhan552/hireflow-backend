@@ -8,145 +8,114 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-
+  id          String               @id @default(uuid())
+  email       String               @unique
+  password    String
+  createdAt   DateTime             @default(now())
   memberships OrganizationMember[]
 }
 
+
 model Job {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  status      String   @default("open")
-  createdAt   DateTime @default(now())
-
-  requiredSkills  String[]
-
-  //AI fields
-  embedding           Float[]  @default([])
-  embeddingModel      String?
-  embeddingUpdatedAt  DateTime?
-
-  aiStatus JobAIStatus @default(PENDING)
-
-  orgId String
-  org   Organization @relation(fields: [orgId], references: [id])
-
-  candidates Candidate[]
+  id                 String       @id @default(uuid())
+  title              String
+  description        String?
+  status             JobStatus       @default(OPEN)
+  createdAt          DateTime     @default(now())
+  orgId              String
+  requiredSkills     String[]     @default([])
+  aiStatus           JobAIStatus  @default(PENDING)
+  embedding          Float[]      @default([])
+  embeddingModel     String?
+  embeddingUpdatedAt DateTime?
+  candidates         Candidate[]
+  org                Organization @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
 }
 
+enum JobStatus {
+  OPEN
+  CLOSED
+}
+
 model Candidate {
-  id        String   @id @default(uuid())
-  name      String
-  email     String
-  phone     String?
-  status    CandidateStatus   @default(APPLIED)
-  createdAt DateTime @default(now())
+  id           String          @id @default(uuid())
+  name         String
+  email        String
+  phone        String?
+  createdAt    DateTime        @default(now())
+  jobId        String
+  orgId        String
+  bestResumeId String?
+  bestScore    Int?
+  status       CandidateStatus @default(APPLIED)
+  job          Job             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  org          Organization    @relation(fields: [orgId], references: [id])
+  resumes      Resume[]
 
-  jobId String
-  orgId String
-  
-  job Job          @relation(fields: [jobId], references: [id],  onDelete: Cascade) 
-  org Organization @relation(fields: [orgId], references: [id])
-
-  bestResumeId   String?
-  bestScore      Int?  
-
-  resumes Resume[]
-
-  @@unique([jobId , email])
+  @@unique([jobId, email])
   @@index([jobId])
   @@index([orgId])
   @@index([jobId, status])
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-
-  members    OrganizationMember[]
-  jobs       Job[]
-  candidates Candidate[]
-  resumes    Resume[]
-
-  usages    OrgUsage[]
-
-  subscription  OrganizationSubscription?
+  id           String                    @id @default(uuid())
+  name         String
+  createdAt    DateTime                  @default(now())
+  candidates   Candidate[]
+  jobs         Job[]
+  usages       OrgUsage[]
+  members      OrganizationMember[]
+  subscription OrganizationSubscription?
+  resumes      Resume[]
 }
 
 model OrganizationMember {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   role      OrgRole
-  createdAt DateTime @default(now())
-
-  userId String
-  orgId  String
-
-  user User         @relation(fields: [userId], references: [id])
-  org  Organization @relation(fields: [orgId], references: [id])
+  createdAt DateTime     @default(now())
+  userId    String
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
 
   @@unique([userId, orgId])
   @@index([orgId])
 }
 
-enum OrgRole {
-  OWNER
-  ADMIN
-  RECRUITER
-  VIEWER
-}
-
 model Resume {
-  id       String @id @default(cuid()) 
-  originalName String
-  fileKey  String
-  fileSize Int
-  mimeType String
-
-  candidateId String
-  candidate   Candidate @relation(fields: [candidateId], references: [id] , onDelete: Cascade)
-
-  orgId String
-  org   Organization @relation(fields: [orgId], references: [id])
-
-  uploadedBy String //userId
-
-  parseStatus ResumeParseStatus @default(PENDING)
-  parsedText  String?           @db.Text
-  parsedData  Json?
-  parsedAt    DateTime?
-  parseError  String?
-
-  confidenceScore  Int?
-  scoreBreakdown   Json?
-
-  //old rule-based score
-  matchScore      Int?
-  matchedSkills   String[]
-  missingSkills   String[]
-
-  //new ai fields
-  embedding            Float[]  @default([])
-  embeddingModel       String?
-  embeddingCreatedAt   DateTime?
-
-  semanticScore    Int?  //0-100 scaled
-  semanticRawScore Float?  //cosine similarity(0-1)
-
-  hybridScore     Int?   //future weighted score
-
-  aiProcessedAt            DateTime?
-  aiStatus ResumeAIStatus  @default(PENDING)
-
-  aiSummary   String?
-
-  createdAt   DateTime          @default(now())
+  id                 String            @id @default(cuid())
+  fileSize           Int
+  mimeType           String
+  candidateId        String
+  orgId              String
+  uploadedBy         String
+  parseStatus        ResumeParseStatus @default(PENDING)
+  createdAt          DateTime          @default(now())
+  originalName       String
+  parseError         String?
+  parsedAt           DateTime?
+  parsedData         Json?
+  parsedText         String?
+  confidenceScore    Int?
+  scoreBreakdown     Json?
+  matchScore         Int?
+  matchedSkills      String[]
+  missingSkills      String[]
+  aiProcessedAt      DateTime?
+  aiStatus           ResumeAIStatus    @default(PENDING)
+  embedding          Float[]           @default([])
+  embeddingCreatedAt DateTime?
+  embeddingModel     String?
+  hybridScore        Int?
+  semanticRawScore   Float?
+  semanticScore      Int?
+  fileKey            String
+  aiSummary          String?
+  candidate          Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  org                Organization      @relation(fields: [orgId], references: [id])
 
   @@index([candidateId])
   @@index([orgId])
@@ -154,52 +123,33 @@ model Resume {
   @@index([hybridScore])
 }
 
-enum ResumeParseStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-model OrgUsage{
-  id            String  @id  @default(uuid())
+model OrgUsage {
+  id            String       @id @default(uuid())
   orgId         String
   month         String
-  resumesParsed  Int     @default(0)
-  jobsCreated    Int     @default(0)
-
-  org Organization  @relation(fields:[orgId], references:[id])
+  resumesParsed Int          @default(0)
+  jobsCreated   Int          @default(0)
+  org           Organization @relation(fields: [orgId], references: [id])
 
   @@unique([orgId, month])
   @@index([orgId])
 }
 
-model OrganizationSubscription{
-  id String @id @default(uuid())
-
-  orgId String @unique
-  org  Organization @relation(fields: [orgId], references: [id] )
-
-  //Provider-agnostic identifiers
-  providerCustomerId     String? @unique
-  providerSubscriptionId String? @unique
-  provider               String  @default("razorpay")
-
-
-  //plan info
-  plan   BillingPlan        @default(FREE)
-  status SubscriptionStatus @default(INACTIVE)
-
-  currentPeriodEnd  DateTime?
-  cancelAtPeriodEnd Boolean @default(false)
-
-  //webhook observability
-  lastWebhookEvent String?
-  lastWebhookAt    DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+model OrganizationSubscription {
+  id                     String             @id @default(uuid())
+  orgId                  String             @unique
+  plan                   BillingPlan        @default(FREE)
+  status                 SubscriptionStatus @default(INACTIVE)
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  provider               String             @default("razorpay")
+  providerCustomerId     String?            @unique
+  providerSubscriptionId String?            @unique
+  lastWebhookAt          DateTime?
+  lastWebhookEvent       String?
+  org                    Organization       @relation(fields: [orgId], references: [id])
 }
 
 model Skill {
@@ -210,13 +160,27 @@ model Skill {
   @@index([name])
 }
 
-enum BillingPlan{
+enum OrgRole {
+  OWNER
+  ADMIN
+  RECRUITER
+  VIEWER
+}
+
+enum ResumeParseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum BillingPlan {
   FREE
   PRO
   TEAM
 }
 
-enum SubscriptionStatus{
+enum SubscriptionStatus {
   INACTIVE
   TRIALING
   ACTIVE
@@ -224,13 +188,12 @@ enum SubscriptionStatus{
   CANCELED
 }
 
-enum ResumeAIStatus{
+enum ResumeAIStatus {
   PENDING
   EMBEDDING
   SCORING
   COMPLETED
   FAILED
-
 }
 
 enum JobAIStatus {
