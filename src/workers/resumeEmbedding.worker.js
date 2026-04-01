@@ -11,7 +11,14 @@ const worker = new Worker(
 
     const resume = await prisma.resume.findUnique({
       where: { id: resumeId },
+      include: {
+        candidate: true,
+      },
     });
+
+    if (!resume?.candidate?.jobId) {
+      throw new Error("Job ID missing from resume");
+    }
 
     if (!resume?.parsedText) {
       throw new Error("Parsed Text mising");
@@ -28,9 +35,29 @@ const worker = new Worker(
         embedding,
         embeddingModel: "text-embedding-3-small",
         embeddingCreatedAt: new Date(),
+        aiStatus: "SCORING",
       },
     });
-    await semanticMatchQueue.add("semanticMatch", { resumeId });
+
+    const jobData = await prisma.job.findUnique({
+      where: { id: resume.candidate.jobId },
+    });
+
+    if (jobData?.embedding?.length) {
+      await semanticMatchQueue.add(
+        "semanticMatch",
+        { resumeId },
+        {
+          attempts: 5,
+          backoff: {
+            type: "exponential",
+            delay: 3000,
+          },
+        },
+      );
+    } else {
+      console.log("⏳ Skipping match — job embedding not ready");
+    }
   },
   {
     connection: redis,

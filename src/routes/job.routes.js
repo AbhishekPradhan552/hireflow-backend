@@ -104,9 +104,9 @@ router.post(
         registerSkills(requiredSkills).catch(console.error);
       }
 
-      jobEmbeddingQueue
-        .add("generateEmbedding", { jobId: job.id })
-        .catch(console.error);
+      await jobEmbeddingQueue.add("jobEmbedding", {
+        jobId: job.id,
+      });
 
       res.status(201).json({
         job,

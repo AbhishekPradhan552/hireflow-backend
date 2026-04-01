@@ -19,11 +19,14 @@ const worker = new Worker(
       },
     });
 
-    if (
-      !resume?.embedding?.length ||
-      !resume?.candidate?.job?.embedding?.length
-    ) {
-      throw new Error("Embeddings missing");
+    // ✅ Resume embedding must exist (critical)
+    if (!resume?.embedding?.length) {
+      throw new Error("Resume embedding missing");
+    }
+
+    if (!resume?.candidate?.job?.embedding?.length) {
+      console.warn("⏳ Job embedding not ready, retrying...");
+      throw new Error("JOB_EMBEDDING_NOT_READY");
     }
 
     await prisma.resume.update({
@@ -153,6 +156,13 @@ const worker = new Worker(
   {
     connection: redis,
     concurrency: 3,
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 3000,
+      },
+    },
   },
 );
 
