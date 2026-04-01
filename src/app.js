@@ -12,6 +12,7 @@ import testBillingRoutes from "./routes/testBilling.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 import debugRoutes from "./routes/debug.routes.js";
 import publicRoutes from "./routes/public.routes.js";
+import { redis } from "./queue/connection.js";
 
 const app = express();
 
@@ -33,8 +34,6 @@ app.use(
 );
 
 app.use(express.json());
-
-import { redis } from "./utils/redis.js";
 
 app.get("/health", async (_, res) => {
   try {
