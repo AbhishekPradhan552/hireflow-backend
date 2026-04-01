@@ -128,6 +128,7 @@ const worker = new Worker(
         hybridScore,
         aiSummary,
         aiStatus: "COMPLETED",
+        parseStatus: "COMPLETED",
         aiProcessedAt: new Date(),
       },
     });
