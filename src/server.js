@@ -4,6 +4,7 @@ import "dotenv/config";
 import app from "./app.js";
 import { setupQueueMonitor } from "./queue/monitor.js";
 import prisma from "./lib/prisma.js";
+import "./workers/index.js";
 
 setupQueueMonitor(app);
 
