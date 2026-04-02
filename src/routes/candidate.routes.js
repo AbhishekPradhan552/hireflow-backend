@@ -469,6 +469,63 @@ router.post(
   },
 );
 
+// direcrt s3 upload route
+router.post(
+  "/candidates/:id/resumes/direct",
+  authMiddleware,
+  checkLimit("resumes"),
+  requirePermission("candidate:update"),
+  async (req, res) => {
+    try {
+      const candidateId = req.params.id;
+      const orgId = req.user.orgId;
+
+      const { key, originalName, mimeType, fileSize } = req.body;
+
+      if (!key) {
+        return res.status(400).json({ error: "Missing file key" });
+      }
+
+      const candidate = await prisma.candidate.findFirst({
+        where: { id: candidateId, orgId },
+      });
+
+      if (!candidate) {
+        return res.status(404).json({ error: "Candidate not found" });
+      }
+
+      // ✅ SAME DB STRUCTURE
+      const resume = await prisma.resume.create({
+        data: {
+          originalName,
+          fileKey: key,
+          fileSize,
+          mimeType,
+          candidateId,
+          orgId,
+          uploadedBy: req.user.id,
+          parseStatus: "PENDING",
+        },
+      });
+
+      // ✅ SAME QUEUE
+      await resumeQueue.add(
+        "parse-resume",
+        { resumeId: resume.id },
+        {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 5000 },
+        },
+      );
+
+      res.status(201).json(resume);
+    } catch (err) {
+      console.error("DIRECT UPLOAD ERROR:", err);
+      res.status(500).json({ error: err.message });
+    }
+  },
+);
+
 // GET job statistics
 router.get(
   "/jobs/:jobId/stats",

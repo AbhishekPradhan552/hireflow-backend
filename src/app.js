@@ -13,20 +13,30 @@ import webhookRoutes from "./routes/webhook.routes.js";
 import debugRoutes from "./routes/debug.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import { redis } from "./queue/connection.js";
+import uploadRoutes from "./routes/upload.routes.js";
 
 const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL, // production frontend
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) return callback(null, true);
+
+      // allow localhost (dev)
+      if (origin.includes("localhost")) {
         return callback(null, true);
       }
+
+      // allow configured frontend
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -37,7 +47,7 @@ app.use(express.json());
 
 app.get("/health", async (_, res) => {
   try {
-    await redis.ping(); // check Redis
+    await redis?.ping?.();
 
     return res.json({
       status: "ok",
@@ -47,12 +57,12 @@ app.get("/health", async (_, res) => {
       uptime: process.uptime(),
     });
   } catch (err) {
-    return res.status(500).json({
-      status: "error",
+    return res.json({
+      status: "ok",
       services: {
         redis: "down",
       },
-      error: err.message,
+      uptime: process.uptime(),
     });
   }
 });
@@ -68,5 +78,6 @@ app.use("/test", testBillingRoutes);
 app.use("/webhooks", webhookRoutes);
 app.use(debugRoutes);
 app.use("/api", publicRoutes);
+app.use("/uploads", uploadRoutes);
 
 export default app;

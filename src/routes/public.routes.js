@@ -5,6 +5,10 @@ import { dbRetry } from "../utils/dbRetry.js";
 import { resumeQueue } from "../queue/resume.queue.js";
 import { uploadToS3 } from "../services/storage/s3.service.js";
 
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { s3 } from "../config/s3Client.js";
+
 const router = express.Router();
 
 // 🔹 Constants (avoid string bugs)
@@ -34,121 +38,121 @@ const upload = multer({
 // ==========================
 // 🔥 APPLY TO JOB
 // ==========================
-router.post(
-  "/public/jobs/:jobId/apply",
-  upload.single("resume"),
-  async (req, res) => {
-    try {
-      const { jobId } = req.params;
-      const { name, email, phone } = req.body;
+// router.post(
+//   "/public/jobs/:jobId/apply",
+//   upload.single("resume"),
+//   async (req, res) => {
+//     try {
+//       const { jobId } = req.params;
+//       const { name, email, phone } = req.body;
 
-      if (!name || !email) {
-        return res.status(400).json({
-          success: false,
-          error: "Name and email are required",
-        });
-      }
+//       if (!name || !email) {
+//         return res.status(400).json({
+//           success: false,
+//           error: "Name and email are required",
+//         });
+//       }
 
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          error: "Resume file is required",
-        });
-      }
+//       if (!req.file) {
+//         return res.status(400).json({
+//           success: false,
+//           error: "Resume file is required",
+//         });
+//       }
 
-      const job = await prisma.job.findUnique({
-        where: { id: jobId },
-      });
+//       const job = await prisma.job.findUnique({
+//         where: { id: jobId },
+//       });
 
-      if (!job) {
-        return res.status(404).json({
-          success: false,
-          error: "Job not found",
-        });
-      }
+//       if (!job) {
+//         return res.status(404).json({
+//           success: false,
+//           error: "Job not found",
+//         });
+//       }
 
-      // ✅ FIX: correct enum + correct status code
-      if (job.status !== JOB_STATUS.OPEN) {
-        return res.status(403).json({
-          success: false,
-          error: "This job is no longer accepting applications",
-        });
-      }
+//       // ✅ FIX: correct enum + correct status code
+//       if (job.status !== JOB_STATUS.OPEN) {
+//         return res.status(403).json({
+//           success: false,
+//           error: "This job is no longer accepting applications",
+//         });
+//       }
 
-      // ✅ FIX: case-insensitive email check
-      const existingCandidate = await prisma.candidate.findFirst({
-        where: {
-          jobId,
-          email: {
-            equals: email,
-            mode: "insensitive",
-          },
-        },
-      });
+//       // ✅ FIX: case-insensitive email check
+//       const existingCandidate = await prisma.candidate.findFirst({
+//         where: {
+//           jobId,
+//           email: {
+//             equals: email,
+//             mode: "insensitive",
+//           },
+//         },
+//       });
 
-      if (existingCandidate) {
-        return res.status(409).json({
-          success: false,
-          error: "You have already applied for this job",
-        });
-      }
+//       if (existingCandidate) {
+//         return res.status(409).json({
+//           success: false,
+//           error: "You have already applied for this job",
+//         });
+//       }
 
-      // upload to S3
-      const fileKey = `resumes/${jobId}/${Date.now()}-${req.file.originalname}`;
+//       // upload to S3
+//       const fileKey = `resumes/${jobId}/${Date.now()}-${req.file.originalname}`;
 
-      await uploadToS3({
-        buffer: req.file.buffer,
-        key: fileKey,
-        mimeType: req.file.mimetype,
-      });
+//       await uploadToS3({
+//         buffer: req.file.buffer,
+//         key: fileKey,
+//         mimeType: req.file.mimetype,
+//       });
 
-      const candidate = await prisma.candidate.create({
-        data: {
-          name,
-          email,
-          phone,
-          jobId: job.id,
-          orgId: job.orgId,
-          status: "APPLIED",
-        },
-      });
+//       const candidate = await prisma.candidate.create({
+//         data: {
+//           name,
+//           email,
+//           phone,
+//           jobId: job.id,
+//           orgId: job.orgId,
+//           status: "APPLIED",
+//         },
+//       });
 
-      const resume = await prisma.resume.create({
-        data: {
-          candidateId: candidate.id,
-          orgId: job.orgId,
-          uploadedBy: "PUBLIC_APPLY",
-          fileKey,
-          originalName: req.file.originalname,
-          fileSize: req.file.size,
-          mimeType: req.file.mimetype,
-          parseStatus: "PENDING",
-          aiStatus: "PENDING",
-        },
-      });
+//       const resume = await prisma.resume.create({
+//         data: {
+//           candidateId: candidate.id,
+//           orgId: job.orgId,
+//           uploadedBy: "PUBLIC_APPLY",
+//           fileKey,
+//           originalName: req.file.originalname,
+//           fileSize: req.file.size,
+//           mimeType: req.file.mimetype,
+//           parseStatus: "PENDING",
+//           aiStatus: "PENDING",
+//         },
+//       });
 
-      await resumeQueue.add("parse-resume", {
-        resumeId: resume.id,
-      });
+//       await resumeQueue.add("parse-resume", {
+//         resumeId: resume.id,
+//       });
 
-      return res.json({
-        success: true,
-        message: "Application submitted successfully",
-        data: {
-          candidateId: candidate.id,
-          resumeId: resume.id,
-        },
-      });
-    } catch (err) {
-      console.error("Public apply error:", err);
+//       return res.json({
+//         success: true,
+//         message: "Application submitted successfully",
+//         data: {
+//           candidateId: candidate.id,
+//           resumeId: resume.id,
+//         },
+//       });
+//     } catch (err) {
+//       console.error("Public apply error:", err);
 
-      return res.status(500).json({
-        success: false,
-        error: "Failed to submit application",
-      });
-    }
-  },
-);
+//       return res.status(500).json({
+//         success: false,
+//         error: "Failed to submit application",
+//       });
+//     }
+//   },
+// );
 
 // ==========================
 // 🔥 GET PUBLIC JOB
@@ -202,6 +206,185 @@ router.get("/public/jobs/:jobId", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+});
+
+//apply route
+
+router.post("/public/jobs/:jobId/apply", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { name, email, phone } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({
+        success: false,
+        error: "Name and email are required",
+      });
+    }
+
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        error: "Job not found",
+      });
+    }
+
+    if (job.status !== JOB_STATUS.OPEN) {
+      return res.status(403).json({
+        success: false,
+        error: "This job is no longer accepting applications",
+      });
+    }
+
+    const existingCandidate = await prisma.candidate.findFirst({
+      where: {
+        jobId,
+        email: {
+          equals: email,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (existingCandidate) {
+      return res.status(409).json({
+        success: false,
+        error: "You have already applied for this job",
+      });
+    }
+
+    const candidate = await prisma.candidate.create({
+      data: {
+        name,
+        email,
+        phone,
+        jobId: job.id,
+        orgId: job.orgId,
+        status: "APPLIED",
+      },
+    });
+
+    return res.json({
+      success: true,
+      candidateId: candidate.id,
+      orgId: candidate.orgId,
+    });
+  } catch (err) {
+    console.error("Public apply error:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: "Failed to submit application",
+    });
+  }
+});
+
+//presigned-url direct s3 upload
+router.post("/public/uploads/presigned-url", async (req, res) => {
+  try {
+    const { fileName, fileType, jobId } = req.body;
+
+    if (!fileName || !fileType || !jobId) {
+      return res.status(400).json({
+        error: "Missing required fields",
+      });
+    }
+
+    // optional: validate file type (same as multer)
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (!allowedTypes.includes(fileType)) {
+      return res.status(400).json({
+        error: "Invalid file type",
+      });
+    }
+
+    const key = `resumes/${jobId}/${Date.now()}-${fileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: key,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3, command, {
+      expiresIn: 60,
+    });
+
+    return res.json({
+      success: true,
+      uploadUrl,
+      key,
+    });
+  } catch (err) {
+    console.error("Presigned URL error:", err);
+
+    return res.status(500).json({
+      error: "Failed to generate upload URL",
+    });
+  }
+});
+
+//resume save endpoint
+router.post("/public/resumes/direct", async (req, res) => {
+  try {
+    const { candidateId, orgId, key, originalName, mimeType, fileSize } =
+      req.body;
+
+    if (!candidateId || !key || !orgId) {
+      return res.status(400).json({
+        error: "Missing required fields",
+      });
+    }
+
+    // ✅ safety check
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({
+        error: "Candidate not found",
+      });
+    }
+
+    const resume = await prisma.resume.create({
+      data: {
+        candidateId,
+        orgId,
+        uploadedBy: "PUBLIC_APPLY",
+        fileKey: key,
+        originalName,
+        fileSize,
+        mimeType,
+        parseStatus: "PENDING",
+        aiStatus: "PENDING",
+      },
+    });
+
+    await resumeQueue.add("parse-resume", {
+      resumeId: resume.id,
+    });
+
+    return res.status(201).json({
+      success: true,
+      resumeId: resume.id,
+    });
+  } catch (err) {
+    console.error("Public resume error:", err);
+
+    return res.status(500).json({
+      error: "Failed to save resume",
     });
   }
 });
