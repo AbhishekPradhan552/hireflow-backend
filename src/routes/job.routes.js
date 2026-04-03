@@ -104,9 +104,17 @@ router.post(
         registerSkills(requiredSkills).catch(console.error);
       }
 
-      await jobEmbeddingQueue.add("jobEmbedding", {
-        jobId: job.id,
-      });
+      await jobEmbeddingQueue.add(
+        "jobEmbedding",
+        { jobId: job.id },
+        {
+          jobId: `job-embed-${job.id}`,
+          attempts: 2,
+          backoff: { type: "exponential", delay: 3000 },
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
+      );
 
       res.status(201).json({
         job,
@@ -235,13 +243,16 @@ router.put(
       }
 
       //trigger async response only if requird skills change
-      if (requiredSkills) {
+      if (requiredSkills && requiredSkills.length > 0) {
         await jobRescoreQueue.add(
           "rescore",
           { jobId: req.params.id },
           {
-            removeOnComplete: 100,
-            removeOnFail: 50,
+            jobId: `job-rescore-${req.params.id}`,
+            attempts: 2,
+            backoff: { type: "exponential", delay: 3000 },
+            removeOnComplete: true,
+            removeOnFail: true,
           },
         );
       }

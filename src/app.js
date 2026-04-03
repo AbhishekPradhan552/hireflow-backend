@@ -19,7 +19,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  process.env.FRONTEND_URL, // production frontend
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(
@@ -27,19 +27,31 @@ app.use(
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
 
-      // allow localhost (dev)
+      // localhost
       if (origin.includes("localhost")) {
         return callback(null, true);
       }
 
-      // allow configured frontend
-      if (allowedOrigins.includes(origin)) {
+      // ngrok
+      if (origin.includes("ngrok")) {
         return callback(null, true);
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      // vercel previews
+      if (origin.includes("vercel.app")) {
+        return callback(null, true);
+      }
+
+      // production frontend
+      if (allowedOrigins.some((o) => origin.startsWith(o))) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 

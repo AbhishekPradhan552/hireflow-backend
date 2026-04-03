@@ -69,7 +69,19 @@ export async function parseResume(resumeId) {
     });
 
     // push to embedding queue
-    await resumeEmbeddingQueue.add("generateEmbedding", { resumeId });
+    await resumeEmbeddingQueue.add(
+      "generateEmbedding",
+      { resumeId },
+      {
+        jobId: `resume-embed-${resumeId}`,
+        attempts: 2,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
+      },
+    );
+
     return {
       text,
       parsedData,

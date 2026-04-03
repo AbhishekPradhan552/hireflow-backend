@@ -372,14 +372,27 @@ router.post("/public/resumes/direct", async (req, res) => {
       },
     });
 
-    await resumeQueue.add("parse-resume", {
-      resumeId: resume.id,
-    });
-
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       resumeId: resume.id,
     });
+
+    //  ADD TO QUEUE (NON-BLOCKING, SAFE)
+    resumeQueue
+      .add(
+        "parse-resume",
+        { resumeId: resume.id },
+        {
+          jobId: resume.id,
+          attempts: 2,
+          backoff: { type: "exponential", delay: 3000 },
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
+      )
+      .catch((err) => {
+        console.error("Queue failed (safe):", err.message);
+      });
   } catch (err) {
     console.error("Public resume error:", err);
 

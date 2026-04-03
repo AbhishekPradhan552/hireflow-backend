@@ -19,6 +19,11 @@ const worker = new Worker(
       },
     });
 
+    if (resume?.aiStatus === "COMPLETED") {
+      console.log("⚠️ Already processed, skipping:", resumeId);
+      return;
+    }
+
     // ✅ Resume embedding must exist (critical)
     if (!resume?.embedding?.length) {
       throw new Error("Resume embedding missing");
@@ -155,9 +160,9 @@ const worker = new Worker(
   },
   {
     connection: redis,
-    concurrency: 3,
+    concurrency: 2,
     defaultJobOptions: {
-      attempts: 5,
+      attempts: 2,
       backoff: {
         type: "exponential",
         delay: 3000,

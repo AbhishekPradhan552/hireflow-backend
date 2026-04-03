@@ -16,6 +16,11 @@ const worker = new Worker(
       },
     });
 
+    if (resume?.embedding?.length) {
+      console.log("⚠️ Embedding already exists, skipping");
+      return;
+    }
+
     if (!resume?.candidate?.jobId) {
       throw new Error("Job ID missing from resume");
     }
@@ -44,17 +49,24 @@ const worker = new Worker(
     });
 
     if (jobData?.embedding?.length) {
-      await semanticMatchQueue.add(
-        "semanticMatch",
-        { resumeId },
-        {
-          attempts: 5,
-          backoff: {
-            type: "exponential",
-            delay: 3000,
+      semanticMatchQueue
+        .add(
+          "semanticMatch",
+          { resumeId },
+          {
+            jobId: resumeId,
+            attempts: 2,
+            backoff: {
+              type: "exponential",
+              delay: 3000,
+            },
+            removeOnComplete: true,
+            removeOnFail: true,
           },
-        },
-      );
+        )
+        .catch((err) => {
+          console.error("Semantic queue failed:", err.message);
+        });
     } else {
       console.log("⏳ Skipping match — job embedding not ready");
     }

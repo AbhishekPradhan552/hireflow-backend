@@ -3,4 +3,8 @@ import { Queue } from "bullmq";
 
 export const jobEmbeddingQueue = new Queue("jobEmbeddingQueue", {
   connection: redis,
+  defaultJobOptions: {
+    removeOnComplete: true,
+    removeOnFail: true,
+  },
 });

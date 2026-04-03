@@ -11,13 +11,26 @@ const jobRescoreWorker = new Worker(
       console.log(`🔄 Starting rescore for job: ${jobId} `);
 
       await rescoreJobCandidates(jobId);
+
       console.log(`✅ Rescore completed for job: ${jobId}`);
     } catch (err) {
       console.error("❌ Job rescore failed:", err.message);
       throw err; //BullMQ retry
     }
   },
-  { connection: redis },
+  {
+    connection: redis,
+    concurrency: 1, // imp
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: {
+        type: "exponential",
+        delay: 3000,
+      },
+      removeOnComplete: true,
+      removeOnFail: true,
+    },
+  },
 );
 
 jobRescoreWorker.on("completed", (job) => {

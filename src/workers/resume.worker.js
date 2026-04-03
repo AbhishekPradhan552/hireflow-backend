@@ -27,6 +27,11 @@ const worker = new Worker(
   },
   {
     connection: redis,
+    concurrency: 1,
+    limiter: {
+      max: 5,
+      duration: 1000,
+    },
   },
 );
 worker.on("completed", (job) => {

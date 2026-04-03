@@ -49,18 +49,25 @@ const worker = new Worker(
     });
 
     for (const resume of resumes) {
-      if (resume.embedding?.length) {
-        await semanticMatchQueue.add(
-          "semanticMatch",
-          { resumeId: resume.id },
-          {
-            attempts: 5,
-            backoff: {
-              type: "exponential",
-              delay: 3000,
+      if (resume.embedding?.length && resume.aiStatus !== "COMPLETED") {
+        semanticMatchQueue
+          .add(
+            "semanticMatch",
+            { resumeId: resume.id },
+            {
+              jobId: resume.id,
+              attempts: 2,
+              backoff: {
+                type: "exponential",
+                delay: 3000,
+              },
+              removeOnComplete: true,
+              removeOnFail: true,
             },
-          },
-        );
+          )
+          .catch((err) => {
+            console.error("Semantic queue failed:", err.message);
+          });
       }
     }
   },

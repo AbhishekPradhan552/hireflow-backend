@@ -451,6 +451,7 @@ router.post(
         "parse-resume",
         { resumeId: resume.id },
         {
+          jobId: `resume-${resume.id}`,
           attempts: 3,
           backoff: {
             type: "exponential",
@@ -508,17 +509,23 @@ router.post(
         },
       });
 
-      // ✅ SAME QUEUE
-      await resumeQueue.add(
-        "parse-resume",
-        { resumeId: resume.id },
-        {
-          attempts: 3,
-          backoff: { type: "exponential", delay: 5000 },
-        },
-      );
+      res.status(201).json(resume); // respond first
 
-      res.status(201).json(resume);
+      resumeQueue
+        .add(
+          "parse-resume",
+          { resumeId: resume.id },
+          {
+            jobId: `resume-${resume.id}`, // prevent duplicates
+            attempts: 2, // reduce retries (important)
+            backoff: { type: "exponential", delay: 3000 },
+            removeOnComplete: true, // VERY IMPORTANT
+            removeOnFail: true, // VERY IMPORTANT
+          },
+        )
+        .catch((err) => {
+          console.error("Queue failed (safe):", err.message);
+        });
     } catch (err) {
       console.error("DIRECT UPLOAD ERROR:", err);
       res.status(500).json({ error: err.message });

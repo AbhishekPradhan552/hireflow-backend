@@ -219,10 +219,11 @@ router.post(
       "parse-resume",
       { resumeId },
       {
-        attempts: 3,
+        jobId: `resume-${resumeId}`,
+        attempts: 2,
         backoff: { type: "exponential", delay: 5000 },
         removeOnComplete: true,
-        removeOnFail: false,
+        removeOnFail: true,
       },
     );
 
