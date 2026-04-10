@@ -18,7 +18,7 @@ const router = express.Router();
 router.get(
   "/resumes/:id/download-url",
   authMiddleware,
-  requirePermission("candidate: read"),
+  requirePermission("candidate:read"),
   async (req, res) => {
     try {
       const resumeId = req.params.id;

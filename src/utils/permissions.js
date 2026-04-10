@@ -17,6 +17,7 @@ const ROLE_PERMISSIONS_MAP = {
   ],
 
   RECRUITER: [
+    "job:create",
     "job:read",
 
     "candidate:create",
