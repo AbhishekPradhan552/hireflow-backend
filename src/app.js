@@ -14,6 +14,7 @@ import debugRoutes from "./routes/debug.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import { redis } from "./queue/connection.js";
 import uploadRoutes from "./routes/upload.routes.js";
+import inviteRoutes from "./routes/invites.routes.js";
 
 const app = express();
 
@@ -91,5 +92,5 @@ app.use("/webhooks", webhookRoutes);
 app.use(debugRoutes);
 app.use("/api", publicRoutes);
 app.use("/uploads", uploadRoutes);
-
+app.use(inviteRoutes);
 export default app;

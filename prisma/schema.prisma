@@ -70,6 +70,8 @@ model Organization {
   members      OrganizationMember[]
   subscription OrganizationSubscription?
   resumes      Resume[]
+
+  invites OrganizationInvite[]
 }
 
 model OrganizationMember {
@@ -158,6 +160,25 @@ model Skill {
   createdAt DateTime @default(now())
 
   @@index([name])
+}
+
+model OrganizationInvite {
+  id        String   @id @default(uuid())
+
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  token     String   @unique
+  email     String?
+  role      OrgRole  @default(RECRUITER)
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  usedBy    String? // userId
+
+  @@index([orgId])
+  @@index([email])
 }
 
 enum OrgRole {

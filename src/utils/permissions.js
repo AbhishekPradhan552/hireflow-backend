@@ -14,6 +14,7 @@ const ROLE_PERMISSIONS_MAP = {
 
     "billing:read",
     "billing:update",
+    "org:invite",
   ],
 
   RECRUITER: [
