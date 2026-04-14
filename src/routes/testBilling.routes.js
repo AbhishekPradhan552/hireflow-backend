@@ -11,18 +11,18 @@ router.get("/test-billing", async (req, res) => {
   try {
     const billing = getBillingProvider();
 
-    // 1️⃣ Create customer
+    //  Create customer
     const customer = await billing.createCustomer({
       name: "Test Org",
       billingEmail: "test@example.com",
     });
 
-    // 2️⃣ Fake plan object (temporary)
+    //  Fake plan object (temporary)
     const fakePlan = {
       razorpayPlanId: process.env.RAZORPAY_TEST_PLAN_ID,
     };
 
-    // 3️⃣ Create subscription
+    //  Create subscription
     const subscription = await billing.createSubscription({
       customerId: customer.providerCustomerId,
       plan: fakePlan,

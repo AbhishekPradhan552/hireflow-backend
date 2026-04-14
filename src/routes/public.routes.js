@@ -36,7 +36,7 @@ const upload = multer({
 });
 
 // ==========================
-// 🔥 APPLY TO JOB
+//  APPLY TO JOB
 // ==========================
 // router.post(
 //   "/public/jobs/:jobId/apply",
@@ -71,7 +71,7 @@ const upload = multer({
 //         });
 //       }
 
-//       // ✅ FIX: correct enum + correct status code
+//       //  FIX: correct enum + correct status code
 //       if (job.status !== JOB_STATUS.OPEN) {
 //         return res.status(403).json({
 //           success: false,
@@ -79,7 +79,7 @@ const upload = multer({
 //         });
 //       }
 
-//       // ✅ FIX: case-insensitive email check
+//       //  FIX: case-insensitive email check
 //       const existingCandidate = await prisma.candidate.findFirst({
 //         where: {
 //           jobId,
@@ -155,7 +155,7 @@ const upload = multer({
 // );
 
 // ==========================
-// 🔥 GET PUBLIC JOB
+//  GET PUBLIC JOB
 // ==========================
 router.get("/public/jobs/:jobId", async (req, res) => {
   try {
@@ -347,7 +347,7 @@ router.post("/public/resumes/direct", async (req, res) => {
       });
     }
 
-    // ✅ safety check
+    //  safety check
     const candidate = await prisma.candidate.findUnique({
       where: { id: candidateId },
     });
